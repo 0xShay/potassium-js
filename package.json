@@ -1,0 +1,23 @@
+{
+  "name": "potassium",
+  "version": "1.0.0",
+  "description": "A few Banano utilities for myself.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xShay/potassium-js.git"
+  },
+  "author": "shay@shay.services",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/0xShay/potassium-js/issues"
+  },
+  "homepage": "https://github.com/0xShay/potassium-js#readme",
+  "dependencies": {
+    "@bananocoin/bananojs": "^2.6.1",
+    "axios": "^0.27.2"
+  }
+}
