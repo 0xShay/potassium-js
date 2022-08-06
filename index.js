@@ -5,24 +5,85 @@ const kjs = {
     bananojs: bananojs,
     _config: {
         "node-rpc-url": "http://node.bananoplanet.cc:7072",
-        "work-server-url": "https://mynano.ninja/api/node",
+        "work-server-url": "http://0.tcp.ngrok.io:12953",
         "rep-account": "ban_3p1anetee7arfx9zbmspwf9c8c5r88wy6zkgwcbt7rndtcqsoj6fzuy11na3"
     },
     config: (config) => {
         kjs._config = config;
+    },
+    postToRPC: async (payload) => {
+        let response = await axios.post(kjs._config["node-rpc-url"], payload);
+        if (response.data["error"]) console.error(payload, "RPC error: " + response.data["error"]);
+        return response.data;
+    },
+    rinseSeed: async (seed, recipient, indexEndIncl, indexStart=0) => {
+        let privateKeys = [];
+        let accountsList = [];
+        let sendTxList = [];
+        for (let i = indexStart; i <= indexEndIncl; i++) {    
+            const privateKey = bananojs.getPrivateKey(seed, i);
+            privateKeys.push(privateKey);
+            const publicKey = await bananojs.getPublicKey(privateKey);
+            const account = bananojs.getBananoAccount(publicKey);
+            accountsList.push(account);
+        };
+        let accountsBalances = await kjs.postToRPC({
+            "action": "accounts_balances",
+            "accounts": accountsList
+        });
+        let accountsPending = await kjs.postToRPC({
+            "action": "accounts_pending",
+            "accounts": accountsList
+        });
+        let accountsFrontiers = await kjs.postToRPC({
+            "action": "accounts_frontiers",
+            "accounts": accountsList
+        });
+        for (acc of accountsList) {
+            // receive all incoming pending transactions
+            let pendingTxns = accountsPending["blocks"][acc] || [];
+            if (pendingTxns.length > 0) {
+                let frontier = accountsFrontiers["frontiers"][acc];
+                let rawPreBalance = BigInt(accountsBalances["balances"][acc]["balance"]);
+                let rl = await kjs.receiveList(
+                    privateKeys[accountsList.indexOf(acc)],
+                    pendingTxns,
+                    frontier,
+                    undefined,
+                    rawPreBalance
+                );
+                accountsFrontiers["frontiers"][acc] = rl[0];
+                accountsBalances["balances"][acc]["balance"] = rl[1];
+                console.log(`Received for ${acc}:\n${pendingTxns.join("\n")}`);
+            };
+            // send all to recipient
+            if (accountsBalances["balances"][acc]["balance"] != "0") {
+                let rinseTx = await kjs.sendTx(
+                    privateKeys[accountsList.indexOf(acc)],
+                    recipient,
+                    accountsBalances["balances"][acc]["balance"],
+                    accountsFrontiers["frontiers"][acc],
+                    "0",
+                    accountsBalances["balances"][acc]["balance"]
+                );
+                sendTxList.push(rinseTx[0]);
+                console.log(`Rinsed ${acc}:\n${rinseTx[0]}`);
+            };
+        };
+        return sendTxList;
     },
     signWithKey: async (privateKey, hash) => {
         let signature = await bananojs.signHash(privateKey, hash);
         return signature;
     },
     generateWork: async (hash) => {
-        if (_config["work-server-url"] != undefined) {
-            let response = await axios.post(_config["work-server-url"], {
+        if (kjs._config["work-server-url"] != undefined) {
+            let response = await axios.post(kjs._config["work-server-url"], {
                 "action": "work_generate",
                 "hash": hash,
                 "difficulty": "fffffff000000000"
             });
-            if (response.data["error"]) console.error(response.data["error"]);
+            if (response.data["error"]) console.error(payload, "RPC error: " + response.data["error"]);
             return response.data["work"];
         } else {
             let workBytes = new Uint8Array(8);
@@ -31,6 +92,7 @@ const kjs = {
         };
     },
     sendTx: async (privateKey, recipient, amountRaw, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined) => {
+        if (amountRaw == "0") return console.error("sendTx: Cannot send 0 raw");
         const link = await bananojs.getAccountPublicKey(recipient);
         return kjs.broadcastTx(privateKey, link, amountRaw, previousHash, rawNewBalance, rawPreBalance);
     },
@@ -45,20 +107,20 @@ const kjs = {
         let account = await bananojs.getAccount(publicKey, "ban_");
         
         if (!previousHash || !rawNewBalance) {
-            let accountInfo = (await axios.post(kjs._config["node-rpc-url"], {
+            let accountInfo = await kjs.postToRPC({
                 "action": "account_info",
                 "account": account
-            })).data;
+            });
             if (isSend) {
                 previousHash = previousHash || accountInfo["frontier"] || publicKey;
                 rawNewBalance = ((rawPreBalance ? BigInt(rawPreBalance) : (BigInt(accountInfo["balance"] || BigInt("0")))) - BigInt(amountRaw)).toString();
             } else {
                 previousHash = previousHash || accountInfo["frontier"] || "0000000000000000000000000000000000000000000000000000000000000000";
-                let sendBlock = (await axios.post(kjs._config["node-rpc-url"], {  
+                let sendBlock = await kjs.postToRPC({  
                     "action": "block_info",
                     "json_block": "true",
                     "hash": link
-                })).data;
+                });
                 rawNewBalance = ((rawPreBalance ? BigInt(rawPreBalance) : (BigInt(accountInfo["balance"] || BigInt("0")))) + BigInt(sendBlock["amount"])).toString();    
             }
         };
@@ -83,7 +145,7 @@ const kjs = {
             );
         }
     
-        let response = await axios.post(kjs._config["node-rpc-url"], {
+        let responseHash = (await kjs.postToRPC({
             "action": "process",
             "json_block": "true",
             "subtype": isSend ? "send" : "receive",
@@ -97,29 +159,27 @@ const kjs = {
                 "signature": signature,
                 "work": pow
             }
-        });
+        }))["hash"];
     
-        if (response.data["error"]) console.error(response.data["error"]);
-
-        return [response.data["hash"], rawNewBalance];
+        return [responseHash, rawNewBalance];
 
     },
     getReceivable: async (account, threshold="1000000000000000000000000000") => {
-        return (await axios.post(kjs._config["node-rpc-url"], {
+        return (await kjs.postToRPC({
             "action": "receivable",
             "account": account,
             "threshold": threshold
-        })).data["blocks"];
+        }))["blocks"];
     },
-    receiveList: async (privateKey, hashes, previousHash=undefined, rawNewBalance=undefined) => {
+    receiveList: async (privateKey, hashes, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined) => {
         receivedHashes = [];
-        for (const hash of Object.keys(hashes)) {
-            let tx = await kjs.receiveHash(privateKey, hash, previousHash, undefined, rawNewBalance);
+        for (const hash of hashes) {
+            let tx = await kjs.receiveTx(privateKey, hash, previousHash, rawNewBalance, rawPreBalance);
             previousHash = tx[0];
-            rawNewBalance = tx[1];
+            rawPreBalance = tx[1];
             receivedHashes.push(previousHash);
         };
-        return [receivedHashes, rawNewBalance];
+        return [receivedHashes, rawPreBalance];
     }
 };
 
