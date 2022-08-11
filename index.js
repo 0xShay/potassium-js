@@ -2,7 +2,6 @@ const bananojs = require("bananojs");
 const axios = require("axios").default;
 
 const kjs = {
-    bananojs: bananojs,
     _config: {
         "node-rpc-url": "http://node.bananoplanet.cc:7072",
         "work-server-url": "http://0.tcp.ngrok.io:12953",
