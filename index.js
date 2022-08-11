@@ -19,37 +19,40 @@ const kjs = {
         if (response.data["error"]) console.error(payload, "RPC error: " + response.data["error"]);
         return response.data;
     },
-    generateWork: async (hash) => {
+    generateWorkCPU: async (hash) => {
+        console.log("Generating work with CPU...");
+        let workBytes = new Uint8Array(8);
+        let pow = await bananojs.getWorkUsingCpu(hash, workBytes);
+        return pow;
+    },
+    generateWorkWS: async (hash) => {
+        console.log("Generating work with work server...");
         try {
             let response = await axios.post(kjs._config["work-server-url"], {
                 "action": "work_generate",
                 "hash": hash,
                 "difficulty": "fffffff000000000"
             });
-            if (response.data["error"]) console.error(hash, "RPC error: " + response.data["error"]);
+            if (response.data["error"]) console.error(hash, "Work server error: " + response.data["error"]);
             return response.data["work"];
         } catch(err) {
-            console.error(err.toString());
-            console.log("Generating work with CPU...")
-            let workBytes = new Uint8Array(8);
-            let pow = await bananojs.getWorkUsingCpu(hash, workBytes);
-            return pow;
+            console.error(hash, "Work server error: " + err.toString());
+            return await kjs.generateWorkCPU(hash);
         };
     },
-    generateWorkBpow: async (hash, authKey, difficultyMultiplier=128) => {
-        let response = await axios.post(kjs._config["bpow-server-url"], {
-            // "query": `mutation workGenerate(\n  workGenerate(input:{hash:"${hash}", difficultyMultiplier:128}))\n`,
-            "query": `mutation workGenerate{\n  workGenerate(input:{hash:"${hash}", difficultyMultiplier:${difficultyMultiplier}})}\n`,
-            "variables": null,
-            "operationName": "workGenerate"
-        }, { headers: { "Authorization": (authKey || "") } });
-        if (response.data["errors"]) {
-            console.error(hash, "BPoW error: " + response.data["errors"][0]["message"]);
-            console.log("Generating work with work server")
-            return await kjs.generateWork(hash);
-        } else {
+    generateWork: async (hash, bpowAuthKey="", difficultyMultiplier=128) => {
+        console.log("Generating work with BoomPoW...");
+        try {
+            let response = await axios.post(kjs._config["bpow-server-url"], {
+                "query": `mutation workGenerate{\n  workGenerate(input:{hash:"${hash}", difficultyMultiplier:${difficultyMultiplier}})}\n`,
+                "variables": null,
+                "operationName": "workGenerate"
+            }, { headers: { "Authorization": bpowAuthKey } });
             return response.data["data"]["workGenerate"];
-        };
+        } catch(err) {
+            console.error(hash, "BPoW error: " + err.response.data["errors"][0]["message"]);
+            return await kjs.generateWorkWS(hash);
+        }
     },
     signWithKey: async (privateKey, hash) => {
         let signature = await bananojs.signHash(privateKey, hash);
