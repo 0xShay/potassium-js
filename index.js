@@ -50,7 +50,7 @@ const kjs = {
             }, { headers: { "Authorization": bpowAuthKey } });
             return response.data["data"]["workGenerate"];
         } catch(err) {
-            console.error(hash, "BPoW error: " + err.response.data["errors"][0]["message"]);
+            console.error(hash, "BPoW error: " + err.toString());
             return await kjs.generateWorkWS(hash);
         }
     },
