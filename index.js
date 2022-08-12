@@ -9,7 +9,6 @@ const kjs = {
         "rep-account": "ban_3p1anetee7arfx9zbmspwf9c8c5r88wy6zkgwcbt7rndtcqsoj6fzuy11na3"
     },
     config: (config) => {
-        kjs._config = config;
         Object.keys(config).forEach(k => {
             kjs._config[k] = config[k];
         });
