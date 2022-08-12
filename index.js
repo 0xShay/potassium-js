@@ -47,7 +47,12 @@ const kjs = {
                 "variables": null,
                 "operationName": "workGenerate"
             }, { headers: { "Authorization": bpowAuthKey } });
-            return response.data["data"]["workGenerate"];
+            if (response.data["errors"]) {
+                console.error(hash, "BPoW error: " + response.data["errors"][0]["message"]);
+                return await kjs.generateWorkWS(hash);
+            } else {
+                return response.data["data"]["workGenerate"];
+            }
         } catch(err) {
             console.error(hash, "BPoW error: " + err.toString());
             return await kjs.generateWorkWS(hash);
@@ -57,15 +62,15 @@ const kjs = {
         let signature = await bananojs.signHash(privateKey, hash);
         return signature;
     },
-    sendTx: async (privateKey, recipient, amountRaw, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined) => {
+    sendTx: async (privateKey, recipient, amountRaw, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined, bpowAuthKey="", difficultyMultiplier=128) => {
         if (amountRaw == "0") return console.error("sendTx: Cannot send 0 raw");
         const link = await bananojs.getAccountPublicKey(recipient);
-        return kjs.broadcastTx(privateKey, link, amountRaw, previousHash, rawNewBalance, rawPreBalance);
+        return kjs.broadcastTx(privateKey, link, amountRaw, previousHash, rawNewBalance, rawPreBalance, bpowAuthKey, difficultyMultiplier);
     },
-    receiveTx: async (privateKey, link, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined) => {
-        return kjs.broadcastTx(privateKey, link, 0, previousHash, rawNewBalance, rawPreBalance);
+    receiveTx: async (privateKey, link, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined, bpowAuthKey="", difficultyMultiplier=128) => {
+        return kjs.broadcastTx(privateKey, link, 0, previousHash, rawNewBalance, rawPreBalance, bpowAuthKey, difficultyMultiplier);
     },
-    broadcastTx: async (privateKey, link, amountRaw, previousHash, rawNewBalance, rawPreBalance) => {
+    broadcastTx: async (privateKey, link, amountRaw, previousHash, rawNewBalance, rawPreBalance, bpowAuthKey, difficultyMultiplier) => {
         
         const isSend = amountRaw > 0;
 
@@ -103,7 +108,7 @@ const kjs = {
         let signature = await kjs.signWithKey(privateKey, hash);
         let pow;
         if (isSend) {
-            pow = await kjs.generateWork(previousHash);
+            pow = await kjs.generateWork(previousHash, bpowAuthKey, difficultyMultiplier);
         } else {
             pow = await kjs.generateWork(
                 previousHash == "0000000000000000000000000000000000000000000000000000000000000000" ?
