@@ -11,9 +11,9 @@ It's designed very specifically to cater the needs of my Banano-related projects
     npm i potassium-js
 
     let kjs = require("potassium-js").config({
-		"node-rpc-url": "http://node.bananoplanet.cc:7072",
-		"work-server-url": "https://mynano.ninja/api/node",
-		"rep-account": "ban_3p1anetee7arfx9zbmspwf9c8c5r88wy6zkgwcbt7rndtcqsoj6fzuy11na3"
+      "node-rpc-url": "http://node.bananoplanet.cc:7072",
+      "work-server-url": "https://mynano.ninja/api/node",
+      "rep-account": "ban_3p1anetee7arfx9zbmspwf9c8c5r88wy6zkgwcbt7rndtcqsoj6fzuy11na3"
     });
 
 

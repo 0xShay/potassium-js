@@ -39,7 +39,7 @@ const kjs = {
             return await kjs.generateWorkCPU(hash);
         };
     },
-    generateWork: async (hash, bpowAuthKey="", difficultyMultiplier=128) => {
+    generateWork: async (hash, bpowAuthKey="", difficultyMultiplier=1) => {
         console.log("Generating work with BoomPoW...");
         try {
             let response = await axios.post(kjs._config["bpow-server-url"], {
@@ -62,12 +62,12 @@ const kjs = {
         let signature = await bananojs.signHash(privateKey, hash);
         return signature;
     },
-    sendTx: async (privateKey, recipient, amountRaw, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined, bpowAuthKey="", difficultyMultiplier=128) => {
+    sendTx: async (privateKey, recipient, amountRaw, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined, bpowAuthKey="", difficultyMultiplier=1) => {
         if (amountRaw == "0") return console.error("sendTx: Cannot send 0 raw");
         const link = await bananojs.getAccountPublicKey(recipient);
         return kjs.broadcastTx(privateKey, link, amountRaw, previousHash, rawNewBalance, rawPreBalance, bpowAuthKey, difficultyMultiplier);
     },
-    receiveTx: async (privateKey, link, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined, bpowAuthKey="", difficultyMultiplier=128) => {
+    receiveTx: async (privateKey, link, previousHash=undefined, rawNewBalance=undefined, rawPreBalance=undefined, bpowAuthKey="", difficultyMultiplier=1) => {
         return kjs.broadcastTx(privateKey, link, 0, previousHash, rawNewBalance, rawPreBalance, bpowAuthKey, difficultyMultiplier);
     },
     broadcastTx: async (privateKey, link, amountRaw, previousHash, rawNewBalance, rawPreBalance, bpowAuthKey, difficultyMultiplier) => {
