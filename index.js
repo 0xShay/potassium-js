@@ -6,7 +6,8 @@ const kjs = {
         "node-rpc-url": "http://node.bananoplanet.cc:7072",
         "work-server-url": "http://0.tcp.ngrok.io:12953",
         "bpow-server-url": "https://boompow.banano.cc/graphql",
-        "rep-account": "ban_3p1anetee7arfx9zbmspwf9c8c5r88wy6zkgwcbt7rndtcqsoj6fzuy11na3"
+        "rep-account": "ban_3p1anetee7arfx9zbmspwf9c8c5r88wy6zkgwcbt7rndtcqsoj6fzuy11na3",
+        "enabled-pow-methods": ["bpow", "ws", "cpu"]
     },
     config: (config) => {
         Object.keys(config).forEach(k => {
@@ -19,12 +20,14 @@ const kjs = {
         return response.data;
     },
     generateWorkCPU: async (hash) => {
+        if (!kjs._config["enabled-pow-methods"].includes("cpu")) return 0;
         console.log("Generating work with CPU...");
         let workBytes = new Uint8Array(8);
         let pow = await bananojs.getWorkUsingCpu(hash, workBytes);
         return pow;
     },
     generateWorkWS: async (hash) => {
+        if (!kjs._config["enabled-pow-methods"].includes("ws")) return await kjs.generateWorkCPU(hash);
         console.log("Generating work with work server...");
         try {
             let response = await axios.post(kjs._config["work-server-url"], {
@@ -40,6 +43,7 @@ const kjs = {
         };
     },
     generateWork: async (hash, bpowAuthKey="", difficultyMultiplier=1) => {
+        if (!kjs._config["enabled-pow-methods"].includes("bpow")) return await kjs.generateWorkWS(hash);
         console.log("Generating work with BoomPoW...");
         try {
             let response = await axios.post(kjs._config["bpow-server-url"], {
@@ -56,6 +60,24 @@ const kjs = {
         } catch(err) {
             console.error(hash, "BPoW error: " + err.toString());
             return await kjs.generateWorkWS(hash);
+        }
+    },
+    isBpowOnline: async () => {
+        try {
+            let response = await axios.post(kjs._config["bpow-server-url"], {
+                "query": `mutation workGenerate{\n  workGenerate(input:{hash:"0", difficultyMultiplier:1})}\n`,
+                "variables": null,
+                "operationName": "workGenerate"
+            });
+            if (response.data["errors"]) {
+                console.error("BPoW error: " + response.data["errors"][0]["message"]);
+                return false;
+            } else {
+                return true;
+            }
+        } catch(err) {
+            console.error("BPoW error: " + err.toString());
+            return false;
         }
     },
     signWithKey: async (privateKey, hash) => {
@@ -115,6 +137,9 @@ const kjs = {
                 publicKey : previousHash
             );
         }
+
+        console.log("PoW generation failed");
+        if (pow == 0) return [undefined, rawPreBalance];
     
         let responseHash = (await kjs.postToRPC({
             "action": "process",
