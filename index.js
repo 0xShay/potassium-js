@@ -133,8 +133,9 @@ const kjs = {
             pow = await kjs.generateWork(previousHash, bpowAuthKey, difficultyMultiplier);
         } else {
             pow = await kjs.generateWork(
-                previousHash == "0000000000000000000000000000000000000000000000000000000000000000" ?
-                publicKey : previousHash
+                previousHash == "0000000000000000000000000000000000000000000000000000000000000000" ? publicKey : previousHash,
+                bpowAuthKey,
+                difficultyMultiplier
             );
         }
 
