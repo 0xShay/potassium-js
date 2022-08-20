@@ -20,7 +20,7 @@ const kjs = {
         return response.data;
     },
     generateWorkCPU: async (hash) => {
-        if (!kjs._config["enabled-pow-methods"].includes("cpu")) return 0;
+        if (!kjs._config["enabled-pow-methods"].includes("cpu")) return "0";
         console.log("Generating work with CPU...");
         let workBytes = new Uint8Array(8);
         let pow = await bananojs.getWorkUsingCpu(hash, workBytes);
@@ -139,8 +139,10 @@ const kjs = {
             );
         }
 
-        console.log("PoW generation failed");
-        if (pow == 0) return [undefined, rawPreBalance];
+        if (pow === "0") {
+            console.log("PoW generation failed");
+            return [undefined, rawPreBalance];
+        };
     
         let responseHash = (await kjs.postToRPC({
             "action": "process",
