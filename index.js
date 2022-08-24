@@ -145,62 +145,6 @@ const kjs = {
         return [responseHash, rawNewBalance];
 
     },
-    rinseSeed: async (seed, recipient, indexEndIncl, indexStart=0) => {
-        let privateKeys = [];
-        let accountsList = [];
-        let sendTxList = [];
-        for (let i = indexStart; i <= indexEndIncl; i++) {    
-            const privateKey = bananojs.getPrivateKey(seed, i);
-            privateKeys.push(privateKey);
-            const publicKey = await bananojs.getPublicKey(privateKey);
-            const account = bananojs.getBananoAccount(publicKey);
-            accountsList.push(account);
-        };
-        let accountsBalances = await kjs.postToRPC({
-            "action": "accounts_balances",
-            "accounts": accountsList
-        });
-        let accountsPending = await kjs.postToRPC({
-            "action": "accounts_pending",
-            "accounts": accountsList
-        });
-        let accountsFrontiers = await kjs.postToRPC({
-            "action": "accounts_frontiers",
-            "accounts": accountsList
-        });
-        for (acc of accountsList) {
-            // receive all incoming pending transactions
-            let pendingTxns = accountsPending["blocks"][acc] || [];
-            if (pendingTxns.length > 0) {
-                let frontier = accountsFrontiers["frontiers"][acc];
-                let rawPreBalance = BigInt(accountsBalances["balances"][acc]["balance"]);
-                let rl = await kjs.receiveList(
-                    privateKeys[accountsList.indexOf(acc)],
-                    pendingTxns,
-                    frontier,
-                    undefined,
-                    rawPreBalance
-                );
-                accountsFrontiers["frontiers"][acc] = rl[0];
-                accountsBalances["balances"][acc]["balance"] = rl[1];
-                console.log(`Received for ${acc}:\n${pendingTxns.join("\n")}`);
-            };
-            // send all to recipient
-            if (accountsBalances["balances"][acc]["balance"] != "0") {
-                let rinseTx = await kjs.sendTx(
-                    privateKeys[accountsList.indexOf(acc)],
-                    recipient,
-                    accountsBalances["balances"][acc]["balance"],
-                    accountsFrontiers["frontiers"][acc],
-                    "0",
-                    accountsBalances["balances"][acc]["balance"]
-                );
-                sendTxList.push(rinseTx[0]);
-                console.log(`Rinsed ${acc}:\n${rinseTx[0]}`);
-            };
-        };
-        return sendTxList;
-    },
     getReceivable: async (account, threshold="1000000000000000000000000000") => {
         return (await kjs.postToRPC({
             "action": "receivable",
