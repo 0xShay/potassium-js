@@ -62,24 +62,6 @@ const kjs = {
             return await kjs.generateWorkWS(hash);
         }
     },
-    isBpowOnline: async () => {
-        try {
-            let response = await axios.post(kjs._config["bpow-server-url"], {
-                "query": `mutation workGenerate{\n  workGenerate(input:{hash:"0", difficultyMultiplier:1})}\n`,
-                "variables": null,
-                "operationName": "workGenerate"
-            });
-            if (response.data["errors"]) {
-                console.error("BPoW error: " + response.data["errors"][0]["message"]);
-                return false;
-            } else {
-                return true;
-            }
-        } catch(err) {
-            console.error("BPoW error: " + err.toString());
-            return false;
-        }
-    },
     signWithKey: async (privateKey, hash) => {
         let signature = await bananojs.signHash(privateKey, hash);
         return signature;
