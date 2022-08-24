@@ -145,7 +145,7 @@ const kjs = {
         return [responseHash, rawNewBalance];
 
     },
-    getReceivable: async (account, threshold="1000000000000000000000000000") => {
+    getReceivable: async (account, threshold="1") => {
         return (await kjs.postToRPC({
             "action": "receivable",
             "account": account,
@@ -161,6 +161,12 @@ const kjs = {
             receivedHashes.push(previousHash);
         };
         return [receivedHashes, rawPreBalance];
+    },
+    getAccountBalance: async (account) => {
+        return (await kjs.postToRPC({
+            "action": "account_balance",
+            "account": account
+        }));
     }
 };
 
